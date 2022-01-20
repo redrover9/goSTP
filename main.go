@@ -10,46 +10,39 @@ import (
 )
 
 var (
-	device      string = "enp4s0"
-	snapshotLen int32  = 1024
-	promiscuous bool   = false
-	err         error
-	timeout     time.Duration = 30 * time.Second
-	handle      *pcap.Handle
-	buffer      gopacket.SerializeBuffer
-	options     gopacket.SerializeOptions
+	device = "enp4s0"
+	snapshotLen int32 = 1024
+	err error
+	timeout = 30 * time.Second
+	handle *pcap.Handle
+	buffer gopacket.SerializeBuffer
+	options gopacket.SerializeOptions
 )
 
 func main() {
 
-	handle, err = pcap.OpenLive(device, snapshotLen, promiscuous, timeout)
+	handle, err = pcap.OpenLive(device, snapshotLen, false, timeout)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer handle.Close()
 
-	rawBytes := []byte{10, 20, 30}
+	rawBytes := []byte{0x26, 0x42, 0x42, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x80, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x80, 0x01, 0x00, 0x00, 0x14, 0x00, 0x02, 0x00, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 
-	ipLayer := &layers.IPv4{
-		SrcIP: net.IP{127, 0, 0, 1},
-		DstIP: net.IP{8, 8, 8, 8},
-	}
 	ethernetLayer := &layers.Ethernet{
-		SrcMAC: net.HardwareAddr{0xFF, 0xAA, 0xFA, 0xAA, 0xFF, 0xAA},
-		DstMAC: net.HardwareAddr{0xBD, 0xBD, 0xBD, 0xBD, 0xBD, 0xBD},
-	}
-	tcpLayer := &layers.TCP{
-		SrcPort: layers.TCPPort(4321),
-		DstPort: layers.TCPPort(80),
+		SrcMAC: net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x01},
+		DstMAC: net.HardwareAddr{0x01, 0x80, 0xC2, 0x00, 0x00, 0x00},
 	}
 
 	buffer = gopacket.NewSerializeBuffer()
-	gopacket.SerializeLayers(buffer, options,
+	err := gopacket.SerializeLayers(
+    buffer, options,
 		ethernetLayer,
-		ipLayer,
-		tcpLayer,
 		gopacket.Payload(rawBytes),
 	)
+	if err != nil {
+		return
+	}
 	outgoingPacket := buffer.Bytes()
 	err = handle.WritePacketData(outgoingPacket)
 	if err != nil {
